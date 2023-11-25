@@ -2011,6 +2011,28 @@ void AP_InertialSensor::update(void)
             }
         }
 
+        // Acceptance Test
+        for(uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
+            Vector3f this_gyro_data = _gyro[i];
+            Vector3f this_accel_data = _accel[i];
+            bool gyro_x_valid = _min_gyro.x <= this_gyro_data.x && this_gyro_data.x <= _max_gyro.x;
+            bool gyro_y_valid = _min_gyro.y <= this_gyro_data.y &&
+                                this_gyro_data.y <= _max_gyro.y;
+            bool gyro_z_valid = _min_gyro.z <= this_gyro_data.z &&
+                                this_gyro_data.z <= _max_gyro.z;
+            bool accel_x_valid = _min_accel.x <= this_accel_data.x &&
+                                this_accel_data.x <= _max_accel.x;
+            bool accel_y_valid = _min_accel.y <= this_accel_data.y &&
+                                 this_accel_data.y <= _may_accel.y;
+            bool accel_z_valid = _min_accel.z <= this_accel_data.z &&
+                                 this_accel_data.z <= _maz_accel.z;
+            bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid && accel_x_valid && accel_y_valid && accel_z_valid;
+            if(!pass_test) {
+                _gyro_healthy[i] = false;
+            }
+        }
+
+
         // set primary to first healthy accel and gyro
         for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
             if (_gyro_healthy[i] && _use(i)) {
