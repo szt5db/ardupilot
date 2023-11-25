@@ -729,10 +729,10 @@ private:
 
     uint8_t imu_kill_mask;
 
-    Vector3f _gyro_min;
-    Vector3f _gyro_max;
-    Vector3f _accel_min;
-    Vector3f _accel_max;
+    AP_Vector3f _gyro_min;
+    AP_Vector3f _gyro_max;
+    AP_Vector3f _accel_min;
+    AP_Vector3f _accel_max;
 
 #if HAL_INS_TEMPERATURE_CAL_ENABLE
 public:
