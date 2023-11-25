@@ -1,6 +1,7 @@
 #include <assert.h>
 
 #include "AP_InertialSensor.h"
+#include "AP_InertialSensor_config.h"
 
 #if AP_INERTIALSENSOR_ENABLED
 
@@ -1943,6 +1944,101 @@ void AP_InertialSensor::HarmonicNotch::update_params(uint8_t instance, bool conv
     }
 }
 
+void acceptance_test(uint8_t instance) {
+    Vector3f this_gyro_data = _gyro[instance];
+    Vector3f this_accel_data = _accel[instance];
+    bool gyro_x_valid =
+        _min_gyro.x <= this_gyro_data->x && this_gyro_data->x <= _max_gyro->x;
+    bool gyro_y_valid =
+        _min_gyro.y <= this_gyro_data.y && this_gyro_data.y <= _max_gyro.y;
+    bool gyro_z_valid =
+        _min_gyro.z <= this_gyro_data.z && this_gyro_data.z <= _max_gyro.z;
+    bool accel_x_valid =
+        _min_accel.x <= this_accel_data.x && this_accel_data.x <= _max_accel.x;
+    bool accel_y_valid =
+        _min_accel.y <= this_accel_data.y && this_accel_data.y <= _may_accel.y;
+    bool accel_z_valid =
+        _min_accel.z <= this_accel_data.z && this_accel_data.z <= _maz_accel.z;
+    bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
+        accel_x_valid && accel_y_valid && accel_z_valid;
+    return pass_test;
+}
+
+/*
+  destructive insertion sort of sensor data
+ */
+void insertion_sort(float data[]) {
+  for (uint16_t i = 1; i < INS_MAX_INSTANCES; i++) {
+    uint16_t temp = data[i];
+    int16_t j = i - 1;
+
+    while (j >= 0 && data[j] > temp) {
+      data[j + 1] = data[j];
+      j--;
+    }
+    data[j + 1] = temp;
+  }
+}
+
+float find_median(float data[]) {
+    insertion_sort(data, n);
+    if (INS_MAX_INSTANCES % 2 == 1) {
+        return data[INS_MAX_INSTANCES / 2];
+    }
+    else {
+        return 0.5 * (data[INS_MAX_INSTANCES / 2 - 1] + data[INS_MAX_INSTANCES / 2]);
+    }
+}
+
+// TODO Ignore unhealthy sensors and ignore sensors that we should not use
+bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
+    float gyro_x_data[INS_MAX_INSTANCES];
+    float gyro_y_data[INS_MAX_INSTANCES];
+    float gyro_z_data[INS_MAX_INSTANCES];
+    float accel_x_data[INS_MAX_INSTANCES];
+    float accel_y_data[INS_MAX_INSTANCES];
+    float accel_z_data[INS_MAX_INSTANCES];
+    for(uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
+        gyro_x_data[i] = _gyro[i].x;
+        gyro_y_data[i] = _gyro[i].y;
+        gyro_z_data[i] = _gyro[i].z;
+        accel_x_data[i] = _accel[i].x;
+        accel_y_data[i] = _accel[i].y;
+        accel_z_data[i] = _accel[i].z;
+    }
+    Vector3f gyro_median;
+    Vector3f accel_median;
+    gyro_median.x = find_median(gyro_x_data);
+    gyro_median.y = find_median(gyro_y_data);
+    gyro_median.z = find_median(gyro_z_data);
+    accel_median.x = find_median(accel_x_data);
+    accel_median.y = find_median(accel_y_data);
+    accel_median.z = find_median(accel_z_data);
+
+    uint8_t gyro_min_index = 0;
+    float gyro_min_distance_squared = gyro_median.distanceSquared(_gyro[0]);
+    uint8_t accel_min_index = 0;
+    float accel_min_distance_squared = accel_median.distanceSquared(_accel[0]);
+    for (uint8_t i = 1; i < INS_MAX_INSTANCES; i++) {
+        float gyro_distance_squared = gyro_median.distanceSquared(_gyro[i]);
+        float accel_distance_squared = accel_median.distanceSquared(_accel[i]);
+        if(gyro_distance_squared < gyro_min_distance_squared) {
+            gyro_min_index = i;
+            gyro_min_distance_squared = gyro_distance_squared
+        }
+        if (accel_distance_squared < accel_min_distance_squared) {
+          accel_min_index = i;
+          accel_min_distance_squared = accel_distance_squared
+        }
+    }
+    *gyro_index_result = gyro_min_index;
+    *accel_index_result = accel_min_index;
+}
+
+
+
+
+
 /*
   update gyro and accel values from backends
  */
@@ -2013,25 +2109,16 @@ void AP_InertialSensor::update(void)
 
         // Acceptance Test
         for(uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
-            Vector3f this_gyro_data = _gyro[i];
-            Vector3f this_accel_data = _accel[i];
-            bool gyro_x_valid = _min_gyro.x <= this_gyro_data.x && this_gyro_data.x <= _max_gyro.x;
-            bool gyro_y_valid = _min_gyro.y <= this_gyro_data.y &&
-                                this_gyro_data.y <= _max_gyro.y;
-            bool gyro_z_valid = _min_gyro.z <= this_gyro_data.z &&
-                                this_gyro_data.z <= _max_gyro.z;
-            bool accel_x_valid = _min_accel.x <= this_accel_data.x &&
-                                this_accel_data.x <= _max_accel.x;
-            bool accel_y_valid = _min_accel.y <= this_accel_data.y &&
-                                 this_accel_data.y <= _may_accel.y;
-            bool accel_z_valid = _min_accel.z <= this_accel_data.z &&
-                                 this_accel_data.z <= _maz_accel.z;
-            bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid && accel_x_valid && accel_y_valid && accel_z_valid;
+            bool pass_test = acceptance_test(i);
             if(!pass_test) {
                 _gyro_healthy[i] = false;
             }
         }
 
+        // voting
+        uint8_t gyro_primary_result;
+        uint8_t accel_primary_result;
+        voting(&gyro_primary_result, &accel_primary_result);
 
         // set primary to first healthy accel and gyro
         for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
