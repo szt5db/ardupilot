@@ -779,8 +779,7 @@ const AP_Param::GroupInfo AP_InertialSensor::var_info[] = {
     // @Description: Min Gyro Z Value for Acceptance Test
     // @Units: rad/s
     // @Range -1000 1000
-    AP_GROUPINFO("_GYRO_MIN", 57, AP_InertialSensor, _gyro_min,
-                 -1000)
+    AP_GROUPINFO("_GYRO_MIN", 57, AP_InertialSensor, _gyro_min, (-1000))
 
     // @Param: _GYRO_MAX_X
     // @DisplayName: Maximum Gyro X Value
@@ -799,8 +798,7 @@ const AP_Param::GroupInfo AP_InertialSensor::var_info[] = {
     // @Description: Max Gyro Z Value for Acceptance Test
     // @Units: rad/s
     // @Range -1000 1000
-    AP_GROUPINFO("_GYRO_MAX", 58, AP_InertialSensor, _gyro_max,
-                 1000)
+    AP_GROUPINFO("_GYRO_MAX", 58, AP_InertialSensor, _gyro_max, (1000))
 
     // @Param: _ACCEL_MIN_X
     // @DisplayName: Minimum Accel X Value
@@ -819,8 +817,7 @@ const AP_Param::GroupInfo AP_InertialSensor::var_info[] = {
     // @Description: Min Accel Z Value for Acceptance Test
     // @Units: m/s/s
     // @Range -1000 1000
-    AP_GROUPINFO("_ACCEL_MIN", 59, AP_InertialSensor, _accel_min,
-                 -1000)
+    AP_GROUPINFO("_ACCEL_MIN", 59, AP_InertialSensor, _accel_min, (-1000))
 
     // @Param: _ACCEL_MAX_X
     // @DisplayName: Maximum Accel X Value
@@ -839,8 +836,9 @@ const AP_Param::GroupInfo AP_InertialSensor::var_info[] = {
     // @Description: Max Accel Z Value for Acceptance Test
     // @Units: m/s/s
     // @Range -1000 1000
-    AP_GROUPINFO("_ACCEL_MAX", 60, AP_InertialSensor, _accel_max,
-                 1000)
+    AP_GROUPINFO("_ACCEL_MAX", 60, AP_InertialSensor, _accel_max, (1000))
+
+
     /*
       NOTE: parameter indexes have gaps above. When adding new
       parameters check for conflicts carefully
