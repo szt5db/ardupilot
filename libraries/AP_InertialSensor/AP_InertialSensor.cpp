@@ -1220,17 +1220,17 @@ void AP_InertialSensor::acceptance_test(uint8_t instance) {
     Vector3f this_gyro_data = _gyro[instance];
     Vector3f this_accel_data = _accel[instance];
     bool gyro_x_valid =
-        _min_gyro.x <= this_gyro_data->x && this_gyro_data->x <= _max_gyro->x;
+        _gyro_min.x <= this_gyro_data->x && this_gyro_data->x <= _gyro_max->x;
     bool gyro_y_valid =
-        _min_gyro.y <= this_gyro_data.y && this_gyro_data.y <= _max_gyro.y;
+        _gyro_min.y <= this_gyro_data.y && this_gyro_data.y <= _gyro_max.y;
     bool gyro_z_valid =
-        _min_gyro.z <= this_gyro_data.z && this_gyro_data.z <= _max_gyro.z;
+        _gyro_min.z <= this_gyro_data.z && this_gyro_data.z <= _gyro_max.z;
     bool accel_x_valid =
-        _min_accel.x <= this_accel_data.x && this_accel_data.x <= _max_accel.x;
+        _accel_min.x <= this_accel_data.x && this_accel_data.x <= _accel_max.x;
     bool accel_y_valid =
-        _min_accel.y <= this_accel_data.y && this_accel_data.y <= _may_accel.y;
+        _accel_min.y <= this_accel_data.y && this_accel_data.y <= _accel_max.y;
     bool accel_z_valid =
-        _min_accel.z <= this_accel_data.z && this_accel_data.z <= _maz_accel.z;
+        _accel_min.z <= this_accel_data.z && this_accel_data.z <= _accel_max.z;
     bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
         accel_x_valid && accel_y_valid && accel_z_valid;
     return pass_test;
