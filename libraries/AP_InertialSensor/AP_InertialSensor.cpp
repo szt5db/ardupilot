@@ -1964,34 +1964,73 @@ void acceptance_test(uint8_t instance) {
     return pass_test;
 }
 
-/*
-  destructive insertion sort of sensor data
- */
-void insertion_sort(float data[]) {
-  for (uint16_t i = 1; i < INS_MAX_INSTANCES; i++) {
-    uint16_t temp = data[i];
-    int16_t j = i - 1;
 
-    while (j >= 0 && data[j] > temp) {
-      data[j + 1] = data[j];
+/*
+  destructive insertion sort
+  input index array has form {0, 1, 2, ..., INS_MAX_INSTANCES - 1}
+  data is array of floats of length INS_MAX_INSTANCES
+  Resulting index array has form {i_0, ..., i_{INS_MAX_INSTANCES - 1}}
+  where data[i_j] <= data[i_{j + 1}]
+  TODO check this
+*/
+void insertion_sort(uint8_t index_array[], float data[]) {
+  for (uint16_t i = 1; i < INS_MAX_INSTANCES; i++) {
+      int16_t j = i - 1;
+
+    while (j >= 0 && data[j] > data[i]) {
+      index_array[j + 1] = index_array[j];
       j--;
     }
-    data[j + 1] = temp;
+    index_array[j + 1] = i;
   }
 }
 
-float find_median(float data[]) {
-    insertion_sort(data, n);
-    if (INS_MAX_INSTANCES % 2 == 1) {
-        return data[INS_MAX_INSTANCES / 2];
+/*
+  Need to account for the data we're not allowed to use
+  Also change first_good_index out of convenience
+*/
+float find_median(bool use_sensor_index[], uint8_t num_allowed, float data[]) {
+    uint8_t index_array[INS_MAX_INSTANCES];
+    for (int i=0; i<INS_MAX_INSTANCES; i++) {
+        index_array[i] = i;
+    }
+    insertion_sort(index_array, data);
+
+    uint8_t cur_good_index = 0;
+    uint8_t good_indexes[INS_MAX_INSTANCES]; // Only valid up to index (num_allowed - 1)
+    for(int i=0; i<INS_MAX_INSTANCES; i++) {
+        if(use_sensor_index[index_array[i]]) {
+            good_indexes[cur_good_index] = index_array[i]; // ?
+            cur_good_index++;
+        }
+    }
+
+    if (num_allowed % 2 == 1) {
+        return data[index_array[num_allowed / 2]];
     }
     else {
-        return 0.5 * (data[INS_MAX_INSTANCES / 2 - 1] + data[INS_MAX_INSTANCES / 2]);
+        return 0.5 * (data[index_array[n / 2 - 1]] + data[index_array[n / 2]]);
     }
 }
 
 // TODO Ignore unhealthy sensors and ignore sensors that we should not use
 bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
+    bool use_gyro_index[INS_MAX_INSTANCES];
+    bool use_accel_index[INS_MAX_INSTANCES];
+    uint8_t num_gyros_allowed = 0;
+    uint8_t num_accels_allowed = 0;
+
+
+    for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
+        use_gyro_index[i] = _gyro_healthy[i] && _use(i);
+        use_accel_index[i] = _accel_healthy[i] && _use(i);
+        num_gyros_allowed += use_gyro_index[i];
+        num_accels_allowed += use_accels_index[i];
+    }
+    if ((num_gyros_allowed == 0) || (num_accels_allowed == 0)) {
+        return false;
+    }
+
     float gyro_x_data[INS_MAX_INSTANCES];
     float gyro_y_data[INS_MAX_INSTANCES];
     float gyro_z_data[INS_MAX_INSTANCES];
@@ -2008,27 +2047,47 @@ bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
     }
     Vector3f gyro_median;
     Vector3f accel_median;
-    gyro_median.x = find_median(gyro_x_data);
-    gyro_median.y = find_median(gyro_y_data);
-    gyro_median.z = find_median(gyro_z_data);
-    accel_median.x = find_median(accel_x_data);
-    accel_median.y = find_median(accel_y_data);
-    accel_median.z = find_median(accel_z_data);
+    gyro_median.x = find_median(use_gyro_index, num_gyros_allowed, gyro_x_data);
+    gyro_median.y = find_median(use_gyro_index, num_gyros_allowed, gyro_y_data);
+    gyro_median.z = find_median(use_gyro_index, num_gyros_allowd, gyro_z_data);
+    accel_median.x = find_median(use_accel_index, num_accels_allowed, accel_x_data);
+    accel_median.y = find_median(use_accel_index, num_accels_allowed, accel_y_data);
+    accel_median.z = find_median(use_accel_index, num_accels_allowed, accel_z_data);
 
-    uint8_t gyro_min_index = 0;
-    float gyro_min_distance_squared = gyro_median.distanceSquared(_gyro[0]);
-    uint8_t accel_min_index = 0;
-    float accel_min_distance_squared = accel_median.distanceSquared(_accel[0]);
-    for (uint8_t i = 1; i < INS_MAX_INSTANCES; i++) {
-        float gyro_distance_squared = gyro_median.distanceSquared(_gyro[i]);
-        float accel_distance_squared = accel_median.distanceSquared(_accel[i]);
-        if(gyro_distance_squared < gyro_min_distance_squared) {
+    uint8_t gyro_first_good_index;
+    uint8_t accel_first_good_index;
+    for (int i=0; i<INS_MAX_INSTANCES; i++) {
+        if (use_gyro_index[i]) {
+            gyro_first_good_index = i;
+            break;
+        }
+    }
+    for (int i=0; i < INS_MAX_INSTANCES; i++) {
+      if (use_accel_index[i]) {
+        accel_first_good_index = i;
+        break;
+      }
+    }
+
+    // TODO adjust initial min to be first good index
+    uint8_t gyro_min_index = gyro_first_good_index;
+    float gyro_min_distance_squared = gyro_median.distanceSquared(_gyro[gyro_min_index]);
+    uint8_t accel_min_index = accel_first_good_index;
+    float accel_min_distance_squared = accel_median.distanceSquared(_gyro[gyro_min_index]);
+    for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
+        if(use_gyro_index[i]) {
+          float gyro_distance_squared = gyro_median.distanceSquared(_gyro[i]);
+          if (gyro_distance_squared < gyro_min_distance_squared) {
             gyro_min_index = i;
             gyro_min_distance_squared = gyro_distance_squared
+          }
         }
-        if (accel_distance_squared < accel_min_distance_squared) {
-          accel_min_index = i;
-          accel_min_distance_squared = accel_distance_squared
+        if(use_accel_index[i]) {
+          float accel_distance_squared = accel_median.distanceSquared(_accel[i]);
+          if (accel_distance_squared < accel_min_distance_squared) {
+            accel_min_index = i;
+            accel_min_distance_squared = accel_distance_squared
+          }
         }
     }
     *gyro_index_result = gyro_min_index;
