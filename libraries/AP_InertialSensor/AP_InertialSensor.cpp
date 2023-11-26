@@ -1216,7 +1216,7 @@ AP_InertialSensor::init(uint16_t loop_rate)
 #endif
 }
 
-void AP_InertialSensor::acceptance_test(uint8_t instance) {
+bool AP_InertialSensor::acceptance_test(uint8_t instance) {
     Vector3f this_gyro_data = _gyro[instance];
     Vector3f this_accel_data = _accel[instance];
     Vector3f gyro_min = _gyro_min.get();
@@ -1235,7 +1235,7 @@ void AP_InertialSensor::acceptance_test(uint8_t instance) {
         accel_min.y <= this_accel_data.y && this_accel_data.y <= accel_max.y;
     bool accel_z_valid =
         accel_min.z <= this_accel_data.z && this_accel_data.z <= accel_max.z;
-    bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
+    bool pass_test = gyro_x_vlid && gyro_y_valid && gyro_z_valid &&
         accel_x_valid && accel_y_valid && accel_z_valid;
     return pass_test;
 }
