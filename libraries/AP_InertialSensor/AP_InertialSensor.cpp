@@ -2181,9 +2181,11 @@ void AP_InertialSensor::update(void)
         // voting
         uint8_t gyro_primary_result;
         uint8_t accel_primary_result;
-        voting(&gyro_primary_result, &accel_primary_result);
-        _primary_gyro = gyro_primary_result;
-        _primary_accel = accel_primary_result;
+        bool voting_successful = voting(&gyro_primary_result, &accel_primary_result);
+        if(voting_successful) {
+          _primary_gyro = gyro_primary_result;
+          _primary_accel = accel_primary_result;
+        }
 
         // // set primary to first healthy accel and gyro
         // for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
