@@ -1235,7 +1235,7 @@ bool AP_InertialSensor::acceptance_test(uint8_t instance) {
         accel_min.y <= this_accel_data.y && this_accel_data.y <= accel_max.y;
     bool accel_z_valid =
         accel_min.z <= this_accel_data.z && this_accel_data.z <= accel_max.z;
-    bool pass_test = gyro_x_vlid && gyro_y_valid && gyro_z_valid &&
+    bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
         accel_x_valid && accel_y_valid && accel_z_valid;
     return pass_test;
 }
@@ -1309,7 +1309,7 @@ bool AP_InertialSensor::voting(uint8_t *gyro_index_result,
     use_gyro_index[i] = _gyro_healthy[i] && _use(i);
     use_accel_index[i] = _accel_healthy[i] && _use(i);
     num_gyros_allowed += use_gyro_index[i];
-    num_accels_allowed += use_accels_index[i];
+    num_accels_allowed += use_accel_index[i];
   }
   if ((num_gyros_allowed == 0) || (num_accels_allowed == 0)) {
     return false;
@@ -1333,7 +1333,7 @@ bool AP_InertialSensor::voting(uint8_t *gyro_index_result,
   Vector3f accel_median;
   gyro_median.x = find_median(use_gyro_index, num_gyros_allowed, gyro_x_data);
   gyro_median.y = find_median(use_gyro_index, num_gyros_allowed, gyro_y_data);
-  gyro_median.z = find_median(use_gyro_index, num_gyros_allowd, gyro_z_data);
+  gyro_median.z = find_median(use_gyro_index, num_gyros_allowed, gyro_z_data);
   accel_median.x =
       find_median(use_accel_index, num_accels_allowed, accel_x_data);
   accel_median.y =
@@ -1341,8 +1341,8 @@ bool AP_InertialSensor::voting(uint8_t *gyro_index_result,
   accel_median.z =
       find_median(use_accel_index, num_accels_allowed, accel_z_data);
 
-  uint8_t gyro_first_good_index;
-  uint8_t accel_first_good_index;
+  uint8_t gyro_first_good_index = 0;
+  uint8_t accel_first_good_index = 0;
   for (int i = 0; i < INS_MAX_INSTANCES; i++) {
     if (use_gyro_index[i]) {
       gyro_first_good_index = i;
@@ -1358,23 +1358,23 @@ bool AP_InertialSensor::voting(uint8_t *gyro_index_result,
 
   uint8_t gyro_min_index = gyro_first_good_index;
   float gyro_min_distance_squared =
-      gyro_median.distanceSquared(_gyro[gyro_min_index]);
+      gyro_median.distance_squared(_gyro[gyro_min_index]);
   uint8_t accel_min_index = accel_first_good_index;
   float accel_min_distance_squared =
-      accel_median.distanceSquared(_gyro[gyro_min_index]);
+      accel_median.distance_squared(_gyro[gyro_min_index]);
   for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
     if (use_gyro_index[i]) {
-      float gyro_distance_squared = gyro_median.distanceSquared(_gyro[i]);
+      float gyro_distance_squared = gyro_median.distance_squared(_gyro[i]);
       if (gyro_distance_squared < gyro_min_distance_squared) {
         gyro_min_index = i;
-        gyro_min_distance_squared = gyro_distance_squared
+        gyro_min_distance_squared = gyro_distance_squared;
       }
     }
     if (use_accel_index[i]) {
-      float accel_distance_squared = accel_median.distanceSquared(_accel[i]);
+      float accel_distance_squared = accel_median.distance_squared(_accel[i]);
       if (accel_distance_squared < accel_min_distance_squared) {
         accel_min_index = i;
-        accel_min_distance_squared = accel_distance_squared
+        accel_min_distance_squared = accel_distance_squared;
       }
     }
   }
