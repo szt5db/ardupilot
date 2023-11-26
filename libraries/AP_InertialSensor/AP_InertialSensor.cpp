@@ -2006,10 +2006,10 @@ float find_median(bool use_sensor_index[], uint8_t num_allowed, float data[]) {
     }
 
     if (num_allowed % 2 == 1) {
-        return data[index_array[num_allowed / 2]];
+        return data[good_indexes[num_allowed / 2]];
     }
     else {
-        return 0.5 * (data[index_array[n / 2 - 1]] + data[index_array[n / 2]]);
+        return 0.5 * (data[good_indexes[num_allowed / 2 - 1]] + data[good_indexes[num_allowed / 2]]);
     }
 }
 
@@ -2019,7 +2019,6 @@ bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
     bool use_accel_index[INS_MAX_INSTANCES];
     uint8_t num_gyros_allowed = 0;
     uint8_t num_accels_allowed = 0;
-
 
     for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
         use_gyro_index[i] = _gyro_healthy[i] && _use(i);
@@ -2069,7 +2068,6 @@ bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
       }
     }
 
-    // TODO adjust initial min to be first good index
     uint8_t gyro_min_index = gyro_first_good_index;
     float gyro_min_distance_squared = gyro_median.distanceSquared(_gyro[gyro_min_index]);
     uint8_t accel_min_index = accel_first_good_index;
