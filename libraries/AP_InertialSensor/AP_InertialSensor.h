@@ -483,11 +483,12 @@ private:
 
     void acceptance_test(uint8_t instance);
     void insertion_sort(uint8_t index_array[], float data[]);
-    float find_median(bool use_sensor_index[], uint8_t num_allowed, float data[]);
+    float find_median(bool use_sensor_index[], uint8_t num_allowed,
+                      float data[]);
     bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result);
 
-        // backend objects
-        AP_InertialSensor_Backend *_backends[INS_MAX_BACKENDS];
+    // backend objects
+    AP_InertialSensor_Backend *_backends[INS_MAX_BACKENDS];
 
     // number of gyros and accel drivers. Note that most backends
     // provide both accel and gyro data, so will increment both
