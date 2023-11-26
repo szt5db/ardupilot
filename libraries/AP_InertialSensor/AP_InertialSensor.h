@@ -192,6 +192,12 @@ public:
     // depends on what gyro chips are being used
     float get_gyro_drift_rate(void) const { return ToRad(0.5f/60); }
 
+    void acceptance_test(uint8_t instance);
+    void insertion_sort(uint8_t index_array[], float data[]);
+    float find_median(bool use_sensor_index[], uint8_t num_allowed,
+                      float data[]);
+    bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result);
+
     // update gyro and accel values from accumulated samples
     void update(void) __RAMFUNC__;
 
@@ -481,11 +487,6 @@ private:
     // Logging function
     void Write_IMU_instance(const uint64_t time_us, const uint8_t imu_instance) const;
 
-    void acceptance_test(uint8_t instance);
-    void insertion_sort(uint8_t index_array[], float data[]);
-    float find_median(bool use_sensor_index[], uint8_t num_allowed,
-                      float data[]);
-    bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result);
 
     // backend objects
     AP_InertialSensor_Backend *_backends[INS_MAX_BACKENDS];
