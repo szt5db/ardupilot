@@ -1216,6 +1216,169 @@ AP_InertialSensor::init(uint16_t loop_rate)
 #endif
 }
 
+void AP_InertialSensor::acceptance_test(uint8_t instance) {
+    Vector3f this_gyro_data = _gyro[instance];
+    Vector3f this_accel_data = _accel[instance];
+    bool gyro_x_valid =
+        _min_gyro.x <= this_gyro_data->x && this_gyro_data->x <= _max_gyro->x;
+    bool gyro_y_valid =
+        _min_gyro.y <= this_gyro_data.y && this_gyro_data.y <= _max_gyro.y;
+    bool gyro_z_valid =
+        _min_gyro.z <= this_gyro_data.z && this_gyro_data.z <= _max_gyro.z;
+    bool accel_x_valid =
+        _min_accel.x <= this_accel_data.x && this_accel_data.x <= _max_accel.x;
+    bool accel_y_valid =
+        _min_accel.y <= this_accel_data.y && this_accel_data.y <= _may_accel.y;
+    bool accel_z_valid =
+        _min_accel.z <= this_accel_data.z && this_accel_data.z <= _maz_accel.z;
+    bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
+        accel_x_valid && accel_y_valid && accel_z_valid;
+    return pass_test;
+}
+
+
+/*
+  destructive insertion sort
+  input index array has form {0, 1, 2, ..., INS_MAX_INSTANCES - 1}
+  data is array of floats of length INS_MAX_INSTANCES
+  Resulting index array has form {i_0, ..., i_{INS_MAX_INSTANCES - 1}}
+  where data[i_j] <= data[i_{j + 1}]
+  TODO check this
+*/
+void AP_InertialSensor::insertion_sort(uint8_t index_array[], float data[]) {
+  for (uint16_t i = 1; i < INS_MAX_INSTANCES; i++) {
+      int16_t j = i - 1;
+
+    while (j >= 0 && data[j] > data[i]) {
+      index_array[j + 1] = index_array[j];
+      j--;
+    }
+    index_array[j + 1] = i;
+  }
+}
+
+/*
+  Need to account for the data we're not allowed to use
+  Also change first_good_index out of convenience
+*/
+float AP_InertialSensor::find_median(bool use_sensor_index[],
+                                     uint8_t num_allowed, float data[]) {
+
+  // Set up index array
+  uint8_t index_array[INS_MAX_INSTANCES];
+  for (int i = 0; i < INS_MAX_INSTANCES; i++) {
+    index_array[i] = i;
+  }
+
+  // Do insertion sort
+  insertion_sort(index_array, data);
+
+  // Compute good indices (where data[good_indexes[j]] <= data[good_indexes[j +
+  // 1]] and good_indexes[j] is good for all 0 <= j < num_allowed)
+  uint8_t cur_good_index = 0;
+  uint8_t good_indexes[INS_MAX_INSTANCES]; // Only valid up to index
+                                           // (num_allowed - 1)
+  for (int i = 0; i < INS_MAX_INSTANCES; i++) {
+    if (use_sensor_index[index_array[i]]) {
+      good_indexes[cur_good_index] = index_array[i]; // ?
+      cur_good_index++;
+    }
+  }
+
+  if (num_allowed % 2 == 1) {
+    return data[good_indexes[num_allowed / 2]];
+  } else {
+    return 0.5 * (data[good_indexes[num_allowed / 2 - 1]] +
+                  data[good_indexes[num_allowed / 2]]);
+  }
+}
+
+// TODO Ignore unhealthy sensors and ignore sensors that we should not use
+bool AP_InertialSensor::voting(uint8_t *gyro_index_result,
+                               uint8_t *accel_index_result) {
+  bool use_gyro_index[INS_MAX_INSTANCES];
+  bool use_accel_index[INS_MAX_INSTANCES];
+  uint8_t num_gyros_allowed = 0;
+  uint8_t num_accels_allowed = 0;
+
+  for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
+    use_gyro_index[i] = _gyro_healthy[i] && _use(i);
+    use_accel_index[i] = _accel_healthy[i] && _use(i);
+    num_gyros_allowed += use_gyro_index[i];
+    num_accels_allowed += use_accels_index[i];
+  }
+  if ((num_gyros_allowed == 0) || (num_accels_allowed == 0)) {
+    return false;
+  }
+
+  float gyro_x_data[INS_MAX_INSTANCES];
+  float gyro_y_data[INS_MAX_INSTANCES];
+  float gyro_z_data[INS_MAX_INSTANCES];
+  float accel_x_data[INS_MAX_INSTANCES];
+  float accel_y_data[INS_MAX_INSTANCES];
+  float accel_z_data[INS_MAX_INSTANCES];
+  for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
+    gyro_x_data[i] = _gyro[i].x;
+    gyro_y_data[i] = _gyro[i].y;
+    gyro_z_data[i] = _gyro[i].z;
+    accel_x_data[i] = _accel[i].x;
+    accel_y_data[i] = _accel[i].y;
+    accel_z_data[i] = _accel[i].z;
+  }
+  Vector3f gyro_median;
+  Vector3f accel_median;
+  gyro_median.x = find_median(use_gyro_index, num_gyros_allowed, gyro_x_data);
+  gyro_median.y = find_median(use_gyro_index, num_gyros_allowed, gyro_y_data);
+  gyro_median.z = find_median(use_gyro_index, num_gyros_allowd, gyro_z_data);
+  accel_median.x =
+      find_median(use_accel_index, num_accels_allowed, accel_x_data);
+  accel_median.y =
+      find_median(use_accel_index, num_accels_allowed, accel_y_data);
+  accel_median.z =
+      find_median(use_accel_index, num_accels_allowed, accel_z_data);
+
+  uint8_t gyro_first_good_index;
+  uint8_t accel_first_good_index;
+  for (int i = 0; i < INS_MAX_INSTANCES; i++) {
+    if (use_gyro_index[i]) {
+      gyro_first_good_index = i;
+      break;
+    }
+  }
+  for (int i = 0; i < INS_MAX_INSTANCES; i++) {
+    if (use_accel_index[i]) {
+      accel_first_good_index = i;
+      break;
+    }
+  }
+
+  uint8_t gyro_min_index = gyro_first_good_index;
+  float gyro_min_distance_squared =
+      gyro_median.distanceSquared(_gyro[gyro_min_index]);
+  uint8_t accel_min_index = accel_first_good_index;
+  float accel_min_distance_squared =
+      accel_median.distanceSquared(_gyro[gyro_min_index]);
+  for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
+    if (use_gyro_index[i]) {
+      float gyro_distance_squared = gyro_median.distanceSquared(_gyro[i]);
+      if (gyro_distance_squared < gyro_min_distance_squared) {
+        gyro_min_index = i;
+        gyro_min_distance_squared = gyro_distance_squared
+      }
+    }
+    if (use_accel_index[i]) {
+      float accel_distance_squared = accel_median.distanceSquared(_accel[i]);
+      if (accel_distance_squared < accel_min_distance_squared) {
+        accel_min_index = i;
+        accel_min_distance_squared = accel_distance_squared
+      }
+    }
+  }
+  *gyro_index_result = gyro_min_index;
+  *accel_index_result = accel_min_index;
+  return true;
+}
+
 bool AP_InertialSensor::_add_backend(AP_InertialSensor_Backend *backend)
 {
 
@@ -1944,163 +2107,6 @@ void AP_InertialSensor::HarmonicNotch::update_params(uint8_t instance, bool conv
     }
 }
 
-void acceptance_test(uint8_t instance) {
-    Vector3f this_gyro_data = _gyro[instance];
-    Vector3f this_accel_data = _accel[instance];
-    bool gyro_x_valid =
-        _min_gyro.x <= this_gyro_data->x && this_gyro_data->x <= _max_gyro->x;
-    bool gyro_y_valid =
-        _min_gyro.y <= this_gyro_data.y && this_gyro_data.y <= _max_gyro.y;
-    bool gyro_z_valid =
-        _min_gyro.z <= this_gyro_data.z && this_gyro_data.z <= _max_gyro.z;
-    bool accel_x_valid =
-        _min_accel.x <= this_accel_data.x && this_accel_data.x <= _max_accel.x;
-    bool accel_y_valid =
-        _min_accel.y <= this_accel_data.y && this_accel_data.y <= _may_accel.y;
-    bool accel_z_valid =
-        _min_accel.z <= this_accel_data.z && this_accel_data.z <= _maz_accel.z;
-    bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
-        accel_x_valid && accel_y_valid && accel_z_valid;
-    return pass_test;
-}
-
-
-/*
-  destructive insertion sort
-  input index array has form {0, 1, 2, ..., INS_MAX_INSTANCES - 1}
-  data is array of floats of length INS_MAX_INSTANCES
-  Resulting index array has form {i_0, ..., i_{INS_MAX_INSTANCES - 1}}
-  where data[i_j] <= data[i_{j + 1}]
-  TODO check this
-*/
-void insertion_sort(uint8_t index_array[], float data[]) {
-  for (uint16_t i = 1; i < INS_MAX_INSTANCES; i++) {
-      int16_t j = i - 1;
-
-    while (j >= 0 && data[j] > data[i]) {
-      index_array[j + 1] = index_array[j];
-      j--;
-    }
-    index_array[j + 1] = i;
-  }
-}
-
-/*
-  Need to account for the data we're not allowed to use
-  Also change first_good_index out of convenience
-*/
-float find_median(bool use_sensor_index[], uint8_t num_allowed, float data[]) {
-
-    // Set up index array
-    uint8_t index_array[INS_MAX_INSTANCES];
-    for (int i=0; i<INS_MAX_INSTANCES; i++) {
-        index_array[i] = i;
-    }
-
-    // Do insertion sort
-    insertion_sort(index_array, data);
-
-    // Compute good indices (where data[good_indexes[j]] <= data[good_indexes[j + 1]] and good_indexes[j] is good for all 0 <= j < num_allowed)
-    uint8_t cur_good_index = 0;
-    uint8_t good_indexes[INS_MAX_INSTANCES]; // Only valid up to index (num_allowed - 1)
-    for(int i=0; i<INS_MAX_INSTANCES; i++) {
-        if(use_sensor_index[index_array[i]]) {
-            good_indexes[cur_good_index] = index_array[i]; // ?
-            cur_good_index++;
-        }
-    }
-
-    if (num_allowed % 2 == 1) {
-        return data[good_indexes[num_allowed / 2]];
-    }
-    else {
-        return 0.5 * (data[good_indexes[num_allowed / 2 - 1]] + data[good_indexes[num_allowed / 2]]);
-    }
-}
-
-// TODO Ignore unhealthy sensors and ignore sensors that we should not use
-bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
-    bool use_gyro_index[INS_MAX_INSTANCES];
-    bool use_accel_index[INS_MAX_INSTANCES];
-    uint8_t num_gyros_allowed = 0;
-    uint8_t num_accels_allowed = 0;
-
-    for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
-        use_gyro_index[i] = _gyro_healthy[i] && _use(i);
-        use_accel_index[i] = _accel_healthy[i] && _use(i);
-        num_gyros_allowed += use_gyro_index[i];
-        num_accels_allowed += use_accels_index[i];
-    }
-    if ((num_gyros_allowed == 0) || (num_accels_allowed == 0)) {
-        return false;
-    }
-
-    float gyro_x_data[INS_MAX_INSTANCES];
-    float gyro_y_data[INS_MAX_INSTANCES];
-    float gyro_z_data[INS_MAX_INSTANCES];
-    float accel_x_data[INS_MAX_INSTANCES];
-    float accel_y_data[INS_MAX_INSTANCES];
-    float accel_z_data[INS_MAX_INSTANCES];
-    for(uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
-        gyro_x_data[i] = _gyro[i].x;
-        gyro_y_data[i] = _gyro[i].y;
-        gyro_z_data[i] = _gyro[i].z;
-        accel_x_data[i] = _accel[i].x;
-        accel_y_data[i] = _accel[i].y;
-        accel_z_data[i] = _accel[i].z;
-    }
-    Vector3f gyro_median;
-    Vector3f accel_median;
-    gyro_median.x = find_median(use_gyro_index, num_gyros_allowed, gyro_x_data);
-    gyro_median.y = find_median(use_gyro_index, num_gyros_allowed, gyro_y_data);
-    gyro_median.z = find_median(use_gyro_index, num_gyros_allowd, gyro_z_data);
-    accel_median.x = find_median(use_accel_index, num_accels_allowed, accel_x_data);
-    accel_median.y = find_median(use_accel_index, num_accels_allowed, accel_y_data);
-    accel_median.z = find_median(use_accel_index, num_accels_allowed, accel_z_data);
-
-    uint8_t gyro_first_good_index;
-    uint8_t accel_first_good_index;
-    for (int i=0; i<INS_MAX_INSTANCES; i++) {
-        if (use_gyro_index[i]) {
-            gyro_first_good_index = i;
-            break;
-        }
-    }
-    for (int i=0; i < INS_MAX_INSTANCES; i++) {
-      if (use_accel_index[i]) {
-        accel_first_good_index = i;
-        break;
-      }
-    }
-
-    uint8_t gyro_min_index = gyro_first_good_index;
-    float gyro_min_distance_squared = gyro_median.distanceSquared(_gyro[gyro_min_index]);
-    uint8_t accel_min_index = accel_first_good_index;
-    float accel_min_distance_squared = accel_median.distanceSquared(_gyro[gyro_min_index]);
-    for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
-        if(use_gyro_index[i]) {
-          float gyro_distance_squared = gyro_median.distanceSquared(_gyro[i]);
-          if (gyro_distance_squared < gyro_min_distance_squared) {
-            gyro_min_index = i;
-            gyro_min_distance_squared = gyro_distance_squared
-          }
-        }
-        if(use_accel_index[i]) {
-          float accel_distance_squared = accel_median.distanceSquared(_accel[i]);
-          if (accel_distance_squared < accel_min_distance_squared) {
-            accel_min_index = i;
-            accel_min_distance_squared = accel_distance_squared
-          }
-        }
-    }
-    *gyro_index_result = gyro_min_index;
-    *accel_index_result = accel_min_index;
-    return true;
-}
-
-
-
-
 
 /*
   update gyro and accel values from backends
@@ -2186,7 +2192,6 @@ void AP_InertialSensor::update(void)
           _primary_gyro = gyro_primary_result;
           _primary_accel = accel_primary_result;
         }
-
         // // set primary to first healthy accel and gyro
         // for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
         //     if (_gyro_healthy[i] && _use(i)) {
