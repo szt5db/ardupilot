@@ -2182,24 +2182,22 @@ void AP_InertialSensor::update(void)
         uint8_t gyro_primary_result;
         uint8_t accel_primary_result;
         voting(&gyro_primary_result, &accel_primary_result);
+        _primary_gyro = gyro_primary_result;
+        _primary_accel = accel_primary_result;
 
-
-        // TODO Revise this part 
-        // set primary to first healthy accel and gyro
-        for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
-            if (_gyro_healthy[i] && _use(i)) {
-                _primary_gyro = i;
-                break;
-            }
-        }
-        for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
-            if (_accel_healthy[i] && _use(i)) {
-                _primary_accel = i;
-                break;
-            }
-        }
-
-        // end revision
+        // // set primary to first healthy accel and gyro
+        // for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
+        //     if (_gyro_healthy[i] && _use(i)) {
+        //         _primary_gyro = i;
+        //         break;
+        //     }
+        // }
+        // for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
+        //     if (_accel_healthy[i] && _use(i)) {
+        //         _primary_accel = i;
+        //         break;
+        //     }
+        // }
 
     _last_update_usec = AP_HAL::micros();
     
