@@ -1990,12 +1990,17 @@ void insertion_sort(uint8_t index_array[], float data[]) {
   Also change first_good_index out of convenience
 */
 float find_median(bool use_sensor_index[], uint8_t num_allowed, float data[]) {
+
+    // Set up index array
     uint8_t index_array[INS_MAX_INSTANCES];
     for (int i=0; i<INS_MAX_INSTANCES; i++) {
         index_array[i] = i;
     }
+
+    // Do insertion sort
     insertion_sort(index_array, data);
 
+    // Compute good indices (where data[good_indexes[j]] <= data[good_indexes[j + 1]] and good_indexes[j] is good for all 0 <= j < num_allowed)
     uint8_t cur_good_index = 0;
     uint8_t good_indexes[INS_MAX_INSTANCES]; // Only valid up to index (num_allowed - 1)
     for(int i=0; i<INS_MAX_INSTANCES; i++) {
@@ -2090,6 +2095,7 @@ bool voting(uint8_t *gyro_index_result, uint8_t *accel_index_result) {
     }
     *gyro_index_result = gyro_min_index;
     *accel_index_result = accel_min_index;
+    return true;
 }
 
 
@@ -2177,6 +2183,8 @@ void AP_InertialSensor::update(void)
         uint8_t accel_primary_result;
         voting(&gyro_primary_result, &accel_primary_result);
 
+
+        // TODO Revise this part 
         // set primary to first healthy accel and gyro
         for (uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
             if (_gyro_healthy[i] && _use(i)) {
@@ -2190,6 +2198,8 @@ void AP_InertialSensor::update(void)
                 break;
             }
         }
+
+        // end revision
 
     _last_update_usec = AP_HAL::micros();
     
