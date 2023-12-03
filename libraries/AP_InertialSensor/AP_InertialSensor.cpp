@@ -1218,7 +1218,7 @@ AP_InertialSensor::init(uint16_t loop_rate)
 #endif
 }
 
-bool AP_InertialSensor::acceptance_test(uint8_t instance) {
+bool AP_InertialSensor::acceptance_test(uint8_t instance, bool *gyro_pass, bool *accel_pass) {
     Vector3f this_gyro_data = _gyro[instance];
     Vector3f this_accel_data = _accel[instance];
     Vector3f gyro_min = _gyro_min.get();
@@ -1237,8 +1237,12 @@ bool AP_InertialSensor::acceptance_test(uint8_t instance) {
         accel_min.y <= this_accel_data.y && this_accel_data.y <= accel_max.y;
     bool accel_z_valid =
         accel_min.z <= this_accel_data.z && this_accel_data.z <= accel_max.z;
+    bool gyro_valid = gyro_x_valid && gyro_y_valid && gyro_z_valid;
+    bool accel_valid = accel_x_valid && accel_y_valid && accel_z_valid;
     bool pass_test = gyro_x_valid && gyro_y_valid && gyro_z_valid &&
         accel_x_valid && accel_y_valid && accel_z_valid;
+    *gyro_pass = gyro_valid;
+    *accel_pass = accel_valid;
     return pass_test;
 }
 
@@ -2184,9 +2188,16 @@ void AP_InertialSensor::update(void)
 
         // Acceptance Test
         for(uint8_t i=0; i<INS_MAX_INSTANCES; i++) {
-            bool pass_test = acceptance_test(i);
-            if(!pass_test) {
+            bool gyro_pass;
+            bool accel_pass;
+            bool pass_test = acceptance_test(i, &gyro_pass, &accel_pass);
+            if(!gyro_pass) {
                 _gyro_healthy[i] = false;
+            }
+            if(!accel_pass) {
+                _accel_healthy[i] = false;
+            }
+            if(!pass_test) {
                 AP::logger().Write("ACPT", "TimeUS,Index", "qB", AP_HAL::micros64(), i);
             }
         }
