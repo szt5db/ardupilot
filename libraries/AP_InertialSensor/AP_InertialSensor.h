@@ -102,7 +102,7 @@ public:
     // get startup messages to output to the GCS
     bool get_output_banner(uint8_t instance_id, char* banner, uint8_t banner_len);
 
-    bool acceptance_test(uint8_t instance);
+    bool acceptance_test(uint8_t instance, bool *gyro_pass, bool *accel_pass);
     void insertion_sort(uint8_t index_array[], float data[]);
     float find_median(bool use_sensor_index[], uint8_t num_allowed,
                       float data[]);
