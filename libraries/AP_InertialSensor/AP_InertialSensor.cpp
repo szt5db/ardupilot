@@ -2193,9 +2193,13 @@ void AP_InertialSensor::update(void)
             bool pass_test = acceptance_test(i, &gyro_pass, &accel_pass);
             if(!gyro_pass) {
                 _gyro_healthy[i] = false;
+                AP::logger().Write("ACPG", "TimeUS,Index", "qB",
+                                   AP_HAL::micros64(), i);
             }
             if(!accel_pass) {
                 _accel_healthy[i] = false;
+                AP::logger().Write("ACPA", "TimeUS,Index", "qB",
+                                   AP_HAL::micros64(), i);
             }
             if(!pass_test) {
                 AP::logger().Write("ACPT", "TimeUS,Index", "qB", AP_HAL::micros64(), i);
